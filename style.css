@@ -1,0 +1,227 @@
+/* ==========================================================================
+   Console panel: dark theme
+   One signature detail: each log row lights up the gutter rule in its own
+   color, so severity reads down the left edge before you read a word.
+   Fonts load from Google Fonts when online and fall back to system fonts.
+   ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap");
+
+:root {
+  --surface:   #090a0e;   /* log area */
+  --chrome:    #05060a;   /* tab bar */
+  --gutter:    #06070b;   /* timestamp column */
+  --rule:      #171a21;   /* hairlines */
+  --text:      #d5d9e2;
+  --muted:     #566070;
+  --muted-hi:  #8b95a7;
+  --accent:    #6ea8ff;
+
+  --ui:   "Space Grotesk", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --gutter-w: 84px;
+  --line-h: 22px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: default;
+  overflow: hidden;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ---------- Tab bar ---------- */
+
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  height: 38px;
+  padding: 0 10px;
+  gap: 4px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--rule);
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: var(--ui);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tab:hover { color: var(--muted-hi); }
+
+.tab.active,
+.tab.active:hover { color: #ffffff; }
+
+.tab.active::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 0 14px 1px rgba(110, 168, 255, 0.55);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -4px;
+  border-radius: 6px;
+}
+
+/* Line count badge, hidden until the tab has lines */
+.count {
+  min-width: 20px;
+  padding: 1px 6px;
+  background: #10131a;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  color: var(--muted-hi);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.count:empty { display: none; }
+
+.tab.active .count {
+  color: var(--accent);
+  border-color: rgba(110, 168, 255, 0.28);
+  background: rgba(110, 168, 255, 0.08);
+}
+
+/* ---------- Views ---------- */
+
+.view {
+  display: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.view.active { display: flex; }
+
+/* ---------- Log lines ---------- */
+
+.lines {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 0 14px;
+  line-height: var(--line-h);
+  background:
+    linear-gradient(90deg,
+      var(--gutter) 0,
+      var(--gutter) calc(var(--gutter-w) - 1px),
+      var(--rule) calc(var(--gutter-w) - 1px),
+      var(--rule) var(--gutter-w),
+      transparent var(--gutter-w));
+}
+
+.line {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--gutter-w) minmax(0, 1fr);
+  pointer-events: none;
+}
+
+/* The signature: a bar on the gutter rule in the row's own color */
+.line::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--gutter-w) - 2px);
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  box-shadow: 0 0 10px 0 color-mix(in srgb, currentColor 60%, transparent);
+}
+
+.time {
+  padding-right: 16px;
+  text-align: right;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.line > span:last-child {
+  padding: 0 24px 0 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Empty state ---------- */
+
+.lines:empty { background: none; }
+
+.lines:empty::before {
+  display: block;
+  padding: 22px 24px;
+  color: var(--muted);
+  font-family: var(--ui);
+  font-size: 13px;
+}
+
+#output-lines:empty::before  { content: "No output yet. Messages sent to Output appear here."; }
+#console-lines:empty::before { content: "No messages yet. Messages sent to Console appear here."; }
+
+/* ---------- Scrollbar ---------- */
+
+.lines { scrollbar-width: thin; scrollbar-color: #232733 transparent; }
+.lines::-webkit-scrollbar { width: 10px; }
+.lines::-webkit-scrollbar-track { background: transparent; }
+.lines::-webkit-scrollbar-thumb {
+  background: #232733;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 6px;
+}
+.lines::-webkit-scrollbar-thumb:hover {
+  background: #343a4a;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+/* ---------- Small panels ---------- */
+
+@media (max-width: 420px) {
+  :root { --gutter-w: 66px; }
+  .time { font-size: 10.5px; padding-right: 10px; }
+  .line > span:last-child { padding-left: 12px; padding-right: 12px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tab { transition: color 0.12s ease; }
+}

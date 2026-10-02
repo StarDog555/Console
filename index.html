@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Console</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="panel">
+    <div class="tabbar" role="tablist">
+      <button class="tab active" role="tab" data-view="output">Output<span class="count" id="count-output"></span></button>
+      <button class="tab" role="tab" data-view="console">Console<span class="count" id="count-console"></span></button>
+    </div>
+
+    <section class="view active" id="view-output">
+      <div class="lines" id="output-lines"></div>
+    </section>
+
+    <section class="view" id="view-console">
+      <div class="lines" id="console-lines"></div>
+    </section>
+  </div>
+
+  <script>
+    /* ------------------------------------------------------------------
+       USAGE (from the webview's JS, or from C# via ExecuteScriptAsync):
+
+         Output("255,0,0", "Build failed");
+         Output([0, 200, 80], "Build succeeded");
+         Output("rgb(86,156,214)", "Info");
+         Output({ r: 255, g: 200, b: 0 }, "Warning");
+
+         Log("255,255,255", "Hello from the console");   // Console tab
+
+         ClearOutput();   // clear tabs from code only (users can't)
+         ClearLog();
+
+       Color is the first argument, text is the second.
+
+       C# (WebView2):
+         await webView.CoreWebView2.ExecuteScriptAsync("Output('255,0,0','Hello')");
+       ------------------------------------------------------------------ */
+
+    const DEFAULT_COLOR = "204,204,204";
+
+    const views = {
+      output:  document.getElementById("output-lines"),
+      console: document.getElementById("console-lines")
+    };
+
+    // Accepts "r,g,b", "rgb(r,g,b)", [r,g,b], or {r,g,b}. Falls back to default.
+    function toCss(color) {
+      let r, g, b;
+      if (Array.isArray(color)) {
+        [r, g, b] = color;
+      } else if (color && typeof color === "object") {
+        ({ r, g, b } = color);
+      } else if (typeof color === "string") {
+        const n = color.match(/\d+/g);
+        if (n && n.length >= 3) [r, g, b] = n;
+      }
+      const ch = v => Math.max(0, Math.min(255, parseInt(v, 10)));
+      if ([r, g, b].some(v => v === undefined || isNaN(ch(v)))) {
+        [r, g, b] = DEFAULT_COLOR.split(",");
+      }
+      return `rgb(${ch(r)},${ch(g)},${ch(b)})`;
+    }
+
+    function stamp() {
+      return new Date().toLocaleTimeString([], { hour12: false });
+    }
+
+    const MAX_LINES = 2000;
+
+    function refreshCount(name) {
+      const n = views[name].children.length;
+      document.getElementById("count-" + name).textContent = n ? n : "";
+    }
+
+    function write(target, color, text) {
+      const box = views[target];
+      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 24;
+
+      const line = document.createElement("div");
+      line.className = "line";
+      line.style.color = toCss(color);   // the row's color drives text and gutter marker
+
+      const time = document.createElement("span");
+      time.className = "time";
+      time.textContent = stamp();
+
+      const body = document.createElement("span");
+      body.textContent = String(text);   // textContent keeps injected HTML inert
+
+      line.append(time, body);
+      box.appendChild(line);
+      while (box.children.length > MAX_LINES) box.firstChild.remove();
+      refreshCount(target);
+      if (atBottom) box.scrollTop = box.scrollHeight;
+    }
+
+    // Public functions
+    window.Output = (color, text) => write("output", color, text);
+    window.Log    = (color, text) => write("console", color, text);
+
+    // Optional: let a host push messages (WebView2 / VS Code style)
+    // Message shape: { target: "output" | "console", color: "255,0,0", text: "..." }
+    function onHostMessage(e) {
+      const m = e.data;
+      if (m && typeof m === "object" && views[m.target]) write(m.target, m.color, m.text);
+    }
+    window.addEventListener("message", onHostMessage);
+    if (window.chrome && window.chrome.webview) {
+      window.chrome.webview.addEventListener("message", onHostMessage);
+    }
+
+    // Tabs
+    const tabs = document.querySelectorAll(".tab");
+
+    function show(name) {
+      tabs.forEach(t => t.classList.toggle("active", t.dataset.view === name));
+      document.getElementById("view-output").classList.toggle("active", name === "output");
+      document.getElementById("view-console").classList.toggle("active", name === "console");
+      views[name].scrollTop = views[name].scrollHeight;
+    }
+    tabs.forEach(t => t.addEventListener("click", () => show(t.dataset.view)));
+
+    window.ClearOutput = () => { views.output.replaceChildren(); refreshCount("output"); };
+    window.ClearLog    = () => { views.console.replaceChildren(); refreshCount("console"); };
+
+    // Read-only lock: no selecting, copying, dragging, right-click or shortcuts
+    ["copy", "cut", "paste", "selectstart", "dragstart", "contextmenu"].forEach(ev =>
+      document.addEventListener(ev, e => e.preventDefault())
+    );
+    document.addEventListener("mousedown", e => {
+      if (!e.target.closest(".tab")) e.preventDefault();   // only tabs react to clicks
+    });
+    document.addEventListener("keydown", e => {
+      const k = e.key.toLowerCase();
+      const blocked = (e.ctrlKey || e.metaKey) && ["a", "c", "x", "v", "s", "p", "u", "f"].includes(k);
+      if (blocked || e.key === "F12") e.preventDefault();
+    });
+    document.addEventListener("selectionchange", () => {
+      const s = getSelection();
+      if (s && s.rangeCount) s.removeAllRanges();
+    });
+  </script>
+</body>
+</html>
